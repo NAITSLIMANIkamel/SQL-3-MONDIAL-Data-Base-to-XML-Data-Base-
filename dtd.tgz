@@ -1,0 +1,37 @@
+create or replace type T_geo as object (
+    mountain T_EnsMountain,
+    deserts  T_EnsDesert,
+    islands  T_islands
+);
+/
+
+create or replace type T_Country as object(
+    name varchar2(50) ,
+    code varchar2(4),
+    geographie geo,
+    member function compute return T_geo,
+    member function peak return number
+);
+/
+
+create or replace type body T_Country as
+    member function compute return T_geo is
+        tmpM  T_EnsMountain;
+        tmpD  T_EnsDesert;
+        tmpI  T_islands;
+    begin
+          select value(m) bulk collect into tmpM from mountains m ,provinces p where p.country=self.code and m.province=p.name;
+          select value(d) bulk collect into tmpD from deserts d ,provinces p where p.country=self.code and d.province=p.name;
+          select value(i) bulk collect into tmpI from islands i ,provinces p where p.country=self.code and i.province=p.name;
+    return geo(tmpM,tmpD,tmpI);
+    end;
+
+    member function peak return number is 
+    maximum number;
+    begin
+        select COALESCE(max(value(m).heigth),0) into maximum from table(geographie.mountain) m;
+        return maximum;
+    end;
+
+update countries c
+set c.geographie = c.compute()   result----type geo----

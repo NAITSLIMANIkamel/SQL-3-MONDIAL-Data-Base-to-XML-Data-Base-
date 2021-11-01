@@ -1,0 +1,6 @@
+#!/bin/bash                                                                                                                                     
+
+export XERCES_HOME="/home/kns/Documents/Studies/master/M1/mlbda/tme-dtd-etu"
+export BD_CLASSPATH_DTD_XSL=$XERCES_HOME/xercesSamples.jar:$XERCES_HOME/xml-apis.jar:$XERCES_HOME/xercesImpl.jar
+
+java -cp "$BD_CLASSPATH_DTD_XSL" sax.Counter -v $*

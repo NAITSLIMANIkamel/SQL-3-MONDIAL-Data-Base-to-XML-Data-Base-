@@ -1,0 +1,622 @@
+/*CE FICHIER EST DIDIE A L'EXERCICE 2 DANS LE QUEL VOUS LES JE CREE LES TABLES ET LES TYPES ET SERONT TRASFORMÉ LES FICHIERS 
+EXO2_i.XML ET DTD2_i.dtd i in {1,2,3,4}
+SERONT CREES ET Y'AURA UN FICHIER  clean.sql  QUI SERT JUSTE AU NETOYAGE DE LA BASE DE DONNEE APRÈS L'EXÉCUTION.
+
+SI VOUS SOUHAITER CIOR LES RESULTAT SQL VOUS POUVEZ DESACTIVER EN METTANT EN COMMENTAIRE LES LIGNES A LA FIN DE CE FICHIER
+
+AVANT L'EXECUTION DE CE FICHIER ASSUREZ BIEN QU'IL YA LES SYNONYMES DE LA BASE MONDIAL DANS LA BASE DE DONÉES
+*/
+
+
+/* CREATION DE LA TABLE MY_ENCOPMPASSES  ET MY_BORDERS QUI EST UTILISÉ PAR COUNTY LES SYNONYMES NE SONT PAS PYBLIQUES *****/
+/
+create table my_encompasses (
+                    country varchar(4),
+                    continent varchar(20),
+                    percentage number
+                    );
+/
+create table my_borders (
+                    country1 varchar(4),
+                    country2 varchar(4),
+                    length number
+                    );
+/
+insert into my_borders select * from borders ;
+/
+insert into my_encompasses select * from encompasses;
+/
+
+create or replace type T_coordinates as object(
+    Latitude NUMBER(4,2) ,
+    Longitude NUMBER(5,2) ,
+    member function toXML return XMLType
+);
+/
+
+create or replace type body T_coordinates as
+ member function toXML return XMLType is
+   output XMLType;
+   begin
+    output := XMLType.createxml('<coordinates latitude="'||Latitude||'" longitude="'||Longitude||'" />');
+    return output;
+   end;
+end;
+/
+
+
+CREATE OR replace TYPE T_Island as OBJECT(
+    name VARCHAR2(100),
+    coordinates T_coordinates,
+    Map member function nameI return varchar2,   
+    member function toXML return XMLType
+    );
+/
+
+CREATE or replace TYPE T_ISLANDS as TABLE Of  T_island;
+/
+
+create OR replace type body  T_Island as
+  member function toXML return XMLType is
+    output XMLType;
+    begin
+      output:= XMLType.createxml('<island name="'||name||'" />');
+      if coordinates is not null then 
+        output := XMLType.appendchildxml(output,'island', coordinates.toXML());
+      end if;
+    return output;
+    end;
+
+    Map member function nameI return varchar2 is
+     map varchar2(50);
+     begin 
+        map:=name;
+     return map;
+     end; 
+  end;
+/
+
+create or replace type T_EnsIsland as table of T_Island;
+/    
+
+          
+
+
+
+CREATE OR REPLACE Type  T_Mountain as Object(
+    name varchar2(50),
+    height NUMBER(7,1),
+    member  function toXML return XMLType,
+    Map member function nameM return varchar2
+);
+/
+
+create or replace type body T_Mountain as
+    member function toXML return XMLType is
+    output XMLType;
+    begin
+      output := XMLType.createxml('<mountain name="'||name||'" height="'||height||'" />');
+    return output;
+    end;
+
+    Map member function nameM return varchar2 is
+     map varchar2(50);
+     begin 
+        map:=name;
+     return map;
+     end;
+end;
+/
+
+create or replace type  T_EnsMountain as table of T_Mountain;
+/
+
+
+create OR REPLACE Type  T_Desert as Object(
+    name varchar2(50),
+    area NUMBER(10),
+    member function toXML return XMLType,
+    Map member function nameD return varchar2
+
+);
+/
+
+
+create or replace type body T_Desert as 
+   member function toXML return XMLType is
+   output XMLType;
+   begin
+    output := XMLType.createxml('<desert name="'||name||'" area="'||area||'" />');
+    return output;
+   end;
+
+   Map member function nameD return varchar2 is
+     map varchar2(50);
+     begin 
+        map:=name;
+     return map;
+     end;
+end;
+/
+
+create or replace type  T_EnsDesert as table of T_Desert;
+/
+
+
+
+CREATE OR REPLACE type T_Province as OBJECT(
+    name VARCHAR2(100),
+    capital VARCHAR2(100),
+    deserts T_EnsDesert,
+    mountains T_EnsMountain,
+    islands T_EnsIsland
+);
+/
+
+create or replace type T_EnsProvince as table of T_Province;
+/
+
+
+Create or replace type T_geo  as OBJECT (
+    listM T_EnsMountain,
+    listD T_EnsDesert,
+    listI T_EnsIsland,
+    member function toXML return XMLType 
+);
+/
+
+CREATE OR REPLACE TYPE BODY T_Geo as
+   member function toXML return XMLType is
+   output  XMLType ;
+   begin
+      output := XMLType.createxml('<geo/>');  
+    
+    for indx IN 1..listD.COUNT
+      loop
+         output := XMLType.appendchildxml(output,'geo',listD(indx).toXML());   
+      end loop;
+    
+    for indx IN 1..listM.COUNT
+     loop
+       output := XMLType.appendchildxml(output,'geo',listM(indx).toXML());   
+     end loop;
+
+      for indx IN 1..listI.COUNT
+      loop
+         output := XMLType.appendchildxml(output,'geo',listI(indx).toXML());   
+      end loop;
+
+      return output;
+   end;
+end;
+/
+
+
+create or replace type T_border as Object(
+  countryCode varchar(5),
+  length number,
+  member function toXML return XMLType);
+/
+create or replace type body T_border as 
+  member function toXML return XMLType is
+    output XMLType;
+    begin 
+    output := XMLType.createxml('<border countryCode="'|| countryCode || ' " length="' || length|| '" />');
+    return output;
+    end;
+  end;
+/
+create or replace type T_EnsBorder as table of T_border;
+/
+
+
+create or replace type T_contContries as Object (
+    borders T_EnsBorder,
+    member function toXML return XMLType
+);
+/
+create or replace type body T_ContContries as
+    member function toXML return XMLType is 
+    output XMLType;
+    begin
+      output := XMLType.createxml('<contCountries/>');  
+      for indx IN 1..borders.COUNT
+      loop
+        output := XMLType.appendchildxml(output,'contCountries',borders(indx).toXML());   
+      end loop;
+      return output;
+    end;
+    end;
+/
+
+
+
+CREATE OR REPLACE TYPE T_Country as OBJECT(
+    code varchar2(5),
+    name VARCHAR2(60),
+    provinces T_EnsProvince,
+    member function geos return T_geo,
+    member function peak return number,
+    member function Continent return varchar2,
+    member function ContContries return T_contContries,
+    member function Blength return number,
+    member function toXML1 return XMLType,
+    member function toXML2 return XMLType, 
+    member function toXML3 return XMLType,
+    member function toXML4 return XMLType
+);
+
+/
+
+
+create table COUNTRYS of T_Country 
+  nested table provinces store as Provinces_tab(
+      nested table mountains store as moutains_tab
+      nested table deserts store as deserts_tab
+      nested table islands store as islands_tab);
+
+
+/
+create or replace type body T_country as 
+    member function geos return T_geo is 
+    listM T_EnsMountain;
+    listD T_EnsDesert;
+    listI T_EnsIsland;
+    begin 
+        select distinct( value(m)) bulk collect into listM   from table(self.provinces) p , table(value(p).mountains) m ;
+        
+        select distinct( value(d)) bulk collect into listD from table(self.provinces) p , table(value(p).deserts) d;
+        
+        select distinct( value(i)) bulk collect into listI from table(self.provinces) p , table(value(p).islands) i;
+    return T_geo(ListM,ListD,ListI);
+    end;
+
+
+    member function peak return number as 
+    maxpeak number;
+    ListM T_ENSMountain;
+    begin 
+    listM:=self.geos().listM;
+    select  COALESCE (max(m.height), 0) into maxpeak from table(listM) m;
+    return maxpeak;
+    end;
+ 
+
+
+    member function Continent return varchar2 is 
+        continent varchar2(30);
+        begin 
+        select e.continent into continent  
+            from my_encompasses e  
+            where e.country= self.code and percentage =(select max(e1.percentage) 
+                                                    from my_encompasses e1 
+                                                    where e1.country=self.code) ;
+        return continent;
+    end;
+    
+
+    member function ContContries  return T_ContContries  is  
+        borders T_EnsBorder;
+        begin 
+        select T_Border(C.code,b.length)  bulk collect into borders from my_Borders b , Countrys c where 
+            c.continent()=self.continent()
+            and 
+            ((self.code=b.country1 and c.code=b.country2) or (self.code=b.country2 and c.code=b.country1));
+
+        return T_ContContries(borders);
+        end;
+    
+                       
+   
+ member function Blength return number is 
+    blength number;
+    begin 
+        select sum(length) into blength from my_borders where country1=self.code or country2=self.code;
+    return blength;
+    end;
+
+
+member function toXML1 return XMLType is 
+     output XMLType;
+    begin
+      output := XMLType.createxml('<country name="'||name||'" />'); 
+      output := XMLType.appendchildxml(output,'country',geos().toXML());
+    return output;
+    end;
+
+
+member function toXML2 return XMLType is 
+    output XMLType;
+    --peakname varchar(50);
+    maxheight number;
+    --ListM T_ENSMountain;  
+    begin
+      
+      output := XMLType.createxml('<country name="'||name||'" />'); 
+       output := XMLType.appendchildxml(output,'country',geos().toXML());
+      maxheight := peak();
+      --ListM:=self.geos().listM;
+      if maxheight > 0 then 
+         --select value(m).name into peakname from table(listM) m  where value(m).height >= maxheight;
+         output := XMLType.appendchildxml(output,'country',XMLType.Createxml('<peak height="'||maxheight||'" />')); 
+      end if;  
+    return output;
+    end;
+
+member function toXML3 return XMLType is 
+    output XMLType;
+    begin 
+       output := XMLType.createxml('<country name="'||name||'" continent="'||self.Continent()||'" />');
+       output := XMLType.appendchildxml(output,'country',self.ContContries().toXML());
+    return output;
+    end;
+
+member function toXML4 return XMLType is 
+    output XMLType;
+    begin 
+       output := XMLType.createxml('<country name="'||name||'" blength="'||Blength()||'" />');
+       output := XMLType.appendchildxml(output,'country',ContContries().toXML());
+    return output;
+    end;
+end;
+
+/
+
+create or replace type XMLlist as table of XMLType;
+/
+
+/***********************  creation de la table  country ******************/
+
+
+
+/******************************************    instantiation des données         **************************/
+
+
+/
+
+insert into COUNTRYS select T_country
+                     (c.code,
+                       c.name,                           
+                       (select cast(collect(T_Province
+                        (
+                            p.name , 
+                            p.capital, 
+                            (select  cast( Collect(T_desert(d.name,d.area)) as T_EnsDesert)
+                                from desert d ,GEO_DESERT gd
+                                  where gd.desert=d.name and gd.country=c.code and 
+                                  gd.province=p.name)
+                            ,
+                            (select  cast( Collect(T_Mountain(m.name,m.height) ) as T_EnsMountain)
+                                from mountain m ,GEO_Mountain gm
+                                  where gm.mountain=m.name and gm.country=c.code and 
+                                  gm.province=p.name)
+                            ,
+                             (select  cast(collect(T_Island(i.name,T_coordinates(i.coordinates.Latitude,i.coordinates.Longitude))) as T_EnsIsland)
+                                from Island i ,GEO_ISLAND gi
+                                 where gi.island=i.name and gi.country=c.code and 
+                                  gi.province=p.name)
+                        )) as T_EnsProvince )
+                         from Province p 
+                         where p.country=c.code)
+                     ) from country c;
+                     
+
+
+
+create or replace function toXML(dtd number) return  XMLtype is
+  output XMLtype;
+  countrysxml XMLList;
+  begin
+  output:=XMLType.createxml('<ex2/>');
+  
+  select 
+  case dtd
+  when 1 then c.toXML1() 
+  when 2 then c.toXML2() 
+  when 3 then c.toXML3()
+  else c.toXML4()
+  end bulk collect into countrysxml from countrys c;
+   
+ for i in 1..countrysxml.COUNT
+  loop  
+  output:=XMLType.appendchildxml(output,'ex2',countrysxml(i));
+  
+  end loop;
+  return output;
+  end; 
+/
+
+
+WbExport -type=text
+         -file='EXO2_1.xml'
+         -createDir=true
+         -encoding=ISO-8859-1
+         -header=false
+         -delimiter=','
+         -decimal=',' 
+         -dateFormat='yyyy-MM-dd'
+/
+select  '<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE ex2 SYSTEM "DTD2_1.dtd">
+'||toXML(1).getClobVal() from dual;
+/
+
+
+WbExport -type=text
+         -file='EXO2_2.xml'
+         -createDir=true
+         -encoding=ISO-8859-1
+         -header=false
+         -delimiter=','
+         -decimal=','
+         -dateFormat='yyyy-MM-dd'
+/
+select '<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE ex2 SYSTEM "DTD2_2.dtd">
+'||toXML(2).getClobVal() from dual;
+/
+
+
+
+
+WbExport -type=text
+         -file='EXO2_3.xml'
+         -createDir=true
+         -encoding=ISO-8859-1
+         -header=false
+         -delimiter=','
+         -decimal=','
+         -dateFormat='yyyy-MM-dd'
+/
+select '<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE ex2 SYSTEM "DTD2_3.dtd">
+'||toXML(3).getClobVal() from dual;
+/
+
+WbExport -type=text
+         -file='EXO2_4.xml'
+         -createDir=true
+         -encoding=ISO-8859-1
+         -header=false
+         -delimiter=','
+         -decimal=','
+         -dateFormat='yyyy-MM-dd'
+/
+select '<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE ex2 SYSTEM "DTD2_4.dtd">
+'||toXML(4).getClobVal() from dual;
+/
+/*********************************DTD2_1.dtd***************************************************/
+WbExport -type=text
+         -file='DTD2_1.dtd'
+         -createDir=true
+         -encoding=ISO-8859-1
+         -header=false
+         -delimiter=','
+         -decimal=','
+         -dateFormat='yyyy-MM-dd'
+/
+select replace ('<!ELEMENT ex2 (country+) >  
+<!ELEMENT country (geo) >
+<!ATTLIST country name CDATA #REQUIRED >
+<!ELEMENT geo ( (mountain|desert)*, island* ) >
+<!ELEMENT mountain EMPTY >
+<!ATTLIST mountain name CDATA #REQUIRED 
+                   height CDATA #REQUIRED >
+
+<!ELEMENT desert EMPTY >
+<!ATTLIST desert name CDATA #REQUIRED 
+                 area CDATA #IMPLIED >
+
+<!ELEMENT island (coordinates?) >
+<!ATTLIST island name CDATA #REQUIRED >
+
+<!ELEMENT coordinates EMPTY >
+<!ATTLIST coordinates latitude CDATA #REQUIRED
+                      longitude CDATA #REQUIRED>','','')
+from dual;
+/
+
+/*********************************DTD2_2.dtd***************************************************/
+WbExport -type=text
+         -file='DTD2_2.dtd'
+         -createDir=true
+         -encoding=ISO-8859-1
+         -header=false
+         -delimiter=','
+         -decimal=','
+         -dateFormat='yyyy-MM-dd'
+/
+select replace ('<!ELEMENT ex2 (country+)>
+<!ELEMENT country (geo, peak?) >
+<!ATTLIST country name CDATA #REQUIRED >
+<!ELEMENT geo ( (mountain|desert)*, island* ) >
+<!ELEMENT peak EMPTY >
+<!ATTLIST peak height CDATA #REQUIRED >
+<!ELEMENT mountain EMPTY >
+<!ATTLIST mountain name CDATA #REQUIRED 
+                   height CDATA #REQUIRED >
+
+<!ELEMENT desert EMPTY >
+<!ATTLIST desert name CDATA #REQUIRED 
+                 area CDATA #IMPLIED >
+
+<!ELEMENT island (coordinates?) >
+<!ATTLIST island name CDATA #REQUIRED >
+
+<!ELEMENT coordinates EMPTY >
+<!ATTLIST coordinates latitude CDATA #REQUIRED
+                      longitude CDATA #REQUIRED>','','')
+from dual;
+/
+/*********************************DTD2_3.dtd***************************************************/
+WbExport -type=text
+         -file='DTD2_3.dtd'
+         -createDir=true
+         -encoding=ISO-8859-1
+         -header=false
+         -delimiter=','
+         -decimal=','
+         -dateFormat='yyyy-MM-dd'
+/
+select replace ('<!ELEMENT ex2 (country+)>
+<!ELEMENT country (contCountries) >
+<!ATTLIST country name CDATA #REQUIRED continent CDATA #REQUIRED >
+<!ELEMENT contCountries (border*) > 
+<!ELEMENT border EMPTY>
+<!ATTLIST border countryCode CDATA #REQUIRED
+                 length CDATA #REQUIRED >
+','','')
+from dual;
+/
+
+
+/*********************************DTD2_4.dtd***************************************************/
+WbExport -type=text
+         -file='DTD2_4.dtd'
+         -createDir=true
+         -encoding=ISO-8859-1
+         -header=false
+         -delimiter=','
+         -decimal=','
+         -dateFormat='yyyy-MM-dd'
+/
+select replace ('<!ELEMENT ex2 (country+)>
+<!ELEMENT country (contCountries) >
+<!ATTLIST country name CDATA #REQUIRED blength CDATA #REQUIRED >
+<!ELEMENT contCountries (border*) > 
+<!ELEMENT border EMPTY>
+<!ATTLIST border countryCode CDATA #REQUIRED
+                 length CDATA #REQUIRED >','','')
+from dual;
+/
+
+
+/********************************* netoyage de base de donnée  ***************************************/
+
+
+
+WbExport -type=text
+         -file='clear.sql'
+         -createDir=true
+         -encoding=ISO-8859-1
+         -header=false
+         -delimiter=','
+         -decimal=','
+         -dateFormat='yyyy-MM-dd'
+/ 
+select 'drop '||object_type||' "'|| object_name || '" FORCE ;' 
+from user_objects 
+where object_type in ('TYPE')
+/
+
+/************************ netoyage de la base de donnée *****************************/
+
+@clear
+DROP TABLE COUNTRYS;
+DROP TABLE my_encompasses;
+DROP TABLE my_borders;
+
+
+
+

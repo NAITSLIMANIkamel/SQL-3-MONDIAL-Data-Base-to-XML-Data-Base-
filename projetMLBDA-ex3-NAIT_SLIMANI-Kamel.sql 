@@ -1,0 +1,469 @@
+/*
+CE FICHIER EST DIDIE A L'EXERCICE 3 DANS LE QUEL JE CREE LES TABLES ET LES TYPES  NECESSAIRES 
+ET JE GÉNERE LES FICHIERS EXO3.XML ET DTD3.dtd SERONT CREES clean.sql PLUS UN FICHIERS clean.sql 
+QUI SERT JUSTE AU NETOYAGE DE LA BASE DE DONNEE APRÈS L'EXÉCUTION.
+
+SI VOUS SOUHAITER CIOR LES RESULTAT SQL VOUS POUVEZ DESACTIVER EN METTANT EN COMMENTAIRE LES LIGNES A LA FIN DE CE FICHIER
+
+AVANT L'EXECUTION DE CE FICHIER ASSUREZ BIEN QU'IL YA LES SYNONYMES DE LA BASE MONDIAL DANS LA BASE DE DONÉES
+
+/* CREATION DE LA TABLE MY_ENCOPMPASSES QUI EST UTILISÉ PAR COUNTY LES SYNONYMES NE SONT PAS PYBLIQUES *****/
+/
+ create table my_encompasses (
+                    country varchar(4),
+                    continent varchar(20),
+                    percentage number
+                    );
+/
+
+insert into my_encompasses select * from encompasses;
+/
+
+
+/****************************  TYPE T_COORDINATES   ********************************/
+create or replace type T_coordinates as object(
+    Latitude NUMBER(4,2) ,
+    Longitude NUMBER(5,2) );
+/
+
+/**********************************     T_MOUNTAIN           *********************/
+
+CREATE OR REPLACE Type  T_Mountain as Object(
+    name varchar2(50),
+    height NUMBER(7,1),
+    coordinates T_coordinates,
+    member  function toXML return XMLType);
+
+
+
+/
+create or replace type body T_Mountain as
+    member function toXML return XMLType is
+    output XMLType;
+    stringoutput varchar2(150);
+    begin
+     stringoutput:= '<mountain name="'||name||'" height="'||height||'" ';
+     if coordinates is not null then 
+      stringoutput:= stringoutput || 'latitude="'||coordinates.Latitude||'" longitude= "'||coordinates.Longitude||' " />';
+    else 
+       stringoutput:= stringoutput||'latitude="inconnue" longitude= "inconnue"/>';
+    end if;
+    output := XMLType.createxml(stringoutput);
+    return output;
+    end;
+  end;
+
+
+/
+create or replace type  T_EnsMountain as table of T_Mountain;
+/
+
+/**************************************          RIVER               ************************************************/
+create or replace type T_RIVER as Object( 
+    name varchar(50),
+    length number,
+    member function toXML return XMLtype    
+);
+/
+
+create or replace type Body T_RIVER as 
+    member function toXML return XMLtype is 
+      output XMLType;
+     begin
+        output := XMLType.createxml('<river id ="riv-'||replace(replace(name, ' ', '-'),'/','-')||'" name="'||name||'" length="'||length||'" />');  
+        return output;
+     end ;
+  end;
+/
+
+create or replace type T_ENSRIVER as table of T_RIVER;
+/
+
+
+
+/*****************************************    T_BORDER   ****************************************************/
+create or replace type T_border as Object(
+  countryCode varchar(4),
+  length number,
+  member function toXML return XMLType);
+/
+
+create or replace type body T_border as 
+  member function toXML return XMLType is
+    output XMLType;
+    begin 
+    output := XMLType.createxml('<border countryCode="'|| countryCode || ' " length="' || length|| '" />');
+    return output;
+    end;
+  end;
+/
+create or replace type T_EnsBorder as table of T_border;
+/
+
+/*********************************   T_PROVINCES           ***************************/
+
+CREATE OR REPLACE type T_Province as OBJECT(
+    name VARCHAR2(100),
+    capital VARCHAR2(100),
+    mountains T_EnsMountain,
+    member function toXML return XMLType);
+/
+CREATE OR REPLACE TYPE BODY T_Province as
+   member function toXML return XMLType is
+   output  XMLType ;
+  
+   begin
+      output := XMLType.createxml('<province name="'||name||'" capital="'||capital||'" />');  
+
+      for indx IN 1..mountains.COUNT
+      loop
+         output := XMLType.appendchildxml(output,'province',mountains(indx).toXML());   
+      end loop;
+
+      return output;
+   end;
+  end;
+/
+create or replace type T_EnsProvince as table of T_Province;
+/
+
+
+
+/********************************             T_ORGANIZATION                  ************************/
+
+create or replace type T_Organization as Object(
+  abbreviation varchar2(12),
+  name varchar2(100),
+  creation date,
+  member function toXML return XMLType
+  );
+/
+
+create or replace type body T_Organization as
+  member function toXML return XMLType is 
+    output XMLtype;
+    begin
+    output :=XMLType.createxml('<organization name="'||name||'" id="org-'||replace(abbreviation,' ','-')||'"  creationdate="'||
+         TO_CHAR(creation, 'DD-MON-YYYY')  ||'" />');
+    return output;
+    end;
+  end;
+/
+create type T_ENSORGANIZAION as table of T_Organization;
+/
+/******************* T_ENSID qui representra les idrefs pour xml   ***********************************/
+create type T_ENSID as table of varchar2(50);
+/
+
+/**********************************    T_COUNTRY  ********************************************************/
+
+create or replace type T_country as Object (
+    name varchar(60),
+    code varchar (4),
+    population number,
+    provinces T_ENSProvince,
+    borders T_EnsBorder,
+    Memberin T_ENSID,
+    sourceof T_ENSID,
+    member function continent return varchar2,
+    member function toXML return XMLtype
+);
+/
+create or replace type body T_country as 
+    member function continent return varchar2 is 
+        continent varchar2(30);
+        begin 
+        select e.continent into continent  
+            from my_encompasses e  
+            where e.country= self.code and percentage =(select max(e1.percentage) 
+                                                    from my_encompasses e1 
+                                                    where e1.country=self.code) ;
+        return continent;
+    end;
+    
+    member function toXML return XMLType is 
+    output XMLtype;
+    idrivers varchar2(1000);
+    idorgs varchar2(1000);
+    begin 
+    idrivers:='';
+    idorgs:='';
+    if  memberin.COUNT >0 then 
+      idorgs:='memberin = "'||memberin(1);
+    end if;  
+    if sourceof.COUNT > 0 then 
+      idrivers:='sourceof = "'||sourceof(1);
+    end if;
+
+    for indx in 2..memberin.COUNT
+    loop
+    idorgs:= idorgs || ' '||memberin(indx);
+    end loop;
+    
+    if memberin.count >0 then 
+      idorgs := idorgs||'" ';
+    end if;
+    for indx in 2..sourceof.COUNT
+    loop
+    idrivers:= idrivers ||' '||sourceof(indx);  
+    end loop;
+     if(sourceof.count >0) then 
+      idrivers := idrivers||'" ';
+     end if;
+    output := XMLType.createxml('<country name ="'||name||'" code="'||code||'" population="'||population||'" '||idorgs||'   '||idrivers||' />');
+    for indx  in 1..provinces.COUNT
+    loop
+      output:=XMLtype.appendchildxml(output,'country',provinces(indx).toXML);
+     end loop; 
+      
+      for indx IN 1..borders.COUNT
+      loop
+        output := XMLType.appendchildxml(output,'country',borders(indx).toXML());   
+      end loop;
+  return output;
+  end;
+end;
+/
+
+ create or replace type T_ENSCountry as table of ref T_country;
+/     
+
+
+/*************************** TABLE DES COUNTRY CREATION  ******************************************/
+
+create table Countrys of T_country 
+nested table provinces store as table_province (nested table mountains store as tablemoutains),
+nested table borders store as table_borders,
+nested table sourceof store as table_sourceof,
+nested table memberin store as table_memberin; 
+/
+  
+/***************************************** T_CONTINENT  *************************************/
+create or replace type T_Continent as object(
+    name varchar2(30),
+    countrys T_ENSCountry,
+    member function toXML return XMLtype     
+);
+/
+create or replace type body T_Continent as  
+    member function toXML return XMLType is
+    output XMLType;
+    country T_country;
+    begin
+        output := XMLType.createxml('<continent name="'||name||'" />');
+       for indx IN 1..countrys.COUNT
+        loop
+           select deref(countrys(indx)) into country  from dual;
+           output := XMLType.appendchildxml(output,'continent',country.toXML());   
+        end loop;
+        return output;
+     end ;
+   end;
+/
+
+Create or replace type T_EnsContinent as table of T_Continent;
+/
+
+/***************************        *************************************************/
+create or replace type T_mondial as object (
+  continents  T_EnsContinent,
+  organizations T_ENSORGANIZAION,
+  rivers T_ENSRIVER,
+  member function toXML return XMLType
+)
+/
+
+create or replace type body T_mondial as 
+  member function toXML return XMLType is
+    output XMLType;
+    country T_country;
+    begin 
+    output:=XMLType.createxml('<mondial/>');
+    
+    for indx in 1..continents.COUNT 
+    loop 
+      output:=XMLType.appendchildxml(output,'mondial',continents(indx).toXML());
+    end loop;
+    
+    for indx in 1..organizations.COUNT
+    loop 
+      output:=XMLType.appendchildxml(output,'mondial',organizations(indx).toXML());
+    end loop;
+
+    for indx in 1..rivers.COUNT 
+    loop 
+      output:=XMLType.appendchildxml(output,'mondial',rivers(indx).toXML());
+    end loop;
+   return output; 
+ end;
+ 
+end;
+/
+create table mondial of T_mondial 
+  nested table continents store as tablecontinents(nested table countrys store as table_countrys),
+  nested table organizations store as tableorganzations,
+  nested table rivers store as tablerivers
+  ;
+
+
+
+  insert into COUNTRYS  select T_country
+                     (
+                        c.name,
+                         c.code,         
+                        c.population,
+--                           provinces
+                        (select cast(collect(T_Province
+                        (
+                            p.name , 
+                            p.capital, 
+                            ((select  cast( Collect(T_Mountain(m.name,m.height,T_coordinates(m.coordinates.Latitude,m.coordinates.Longitude))) as T_EnsMountain)
+                                from mountain m ,GEO_Mountain gm
+                                  where gm.mountain=m.name and gm.country=c.code and 
+                                  gm.province=p.name)
+                            ))) as T_EnsProvince )
+                         from Province p 
+                         where p.country=c.code)
+                         
+                        ,
+--                          borders
+                        (select cast (collect (T_Border(c1.code,b.length))  as T_EnsBorder) 
+                        from Borders b , country c1 
+                        where 
+                        (b.country1= c.code and b.country2=c1.code)
+                        or 
+                        (b.country2=c.code and  b.country1=c1.code))
+                        
+                        ,          
+--                         memberin          
+                        
+                        (select cast(collect ('org-'||replace(abbreviation,' ','-')) as T_ENSID) 
+                                 from  ISMEMBER im  , organization o where 
+                                 im.organization=o.abbreviation 
+                                 and c.code= im.country     
+                          )
+                       
+                        ,
+--                         sourceof
+                        (select cast(collect('riv-'||replace(replace(gs.river, ' ', '-'),'/','-')) as T_ENSID) 
+                          from geo_source gs 
+                          where gs.country=c.code) 
+                          )   
+                          from country c;  
+/
+
+
+ insert into mondial values
+              (
+              
+                (select cast(collect(T_Continent(
+                  c.name, 
+                  (select cast(collect(ref(p)) as T_ENSCountry) 
+                            from countrys p where 
+                            c.name=p.continent() ) )) as T_EnsContinent ) 
+              from continent c)
+              
+              ,
+              (select cast(collect(T_Organization(abbreviation,name,ESTABLISHED))  as T_ENSORGANIZAION) from( select * from organization order by ESTABLISHED))
+              
+              ,
+
+              (select cast(collect(T_river(r.name,r.length))as T_ENSRIVER) from river r)
+              );
+ /
+
+WbExport -type=text
+         -file='EXO3.xml'
+         -createDir=true
+         -encoding=ISO-8859-1
+         -header=false
+         -delimiter=','
+         -decimal=','
+         -dateFormat='yyyy-MM-dd'
+/
+
+select '<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mondial SYSTEM "DTD3.dtd">
+'||c.toXML().getClobVal() from mondial c;
+/
+
+/**************************************************   creation de la DTD3.dtd correspendante a l'exercice 3   **************************/
+WbExport -type=text
+         -file='DTD3.dtd'
+         -createDir=true
+         -encoding=ISO-8859-1
+         -header=false
+         -delimiter=','
+         -decimal=','
+         -dateFormat='yyyy-MM-dd'
+/
+select replace ('<!ELEMENT mondial ((continent|river|organization)*) >  
+
+ <!ELEMENT continent (country*) >
+
+<!ATTLIST continent name CDATA #REQUIRED>
+
+<!ELEMENT country (province*, border*) >
+
+<!ATTLIST country name CDATA  #REQUIRED
+                  code ID #REQUIRED
+                  population CDATA #IMPLIED
+                  memberin IDREFS #IMPLIED
+                  sourceof IDREFS #IMPLIED>
+
+<!ELEMENT province (mountain*) >
+<!ATTLIST province name CDATA #REQUIRED
+                   capital CDATA #REQUIRED>
+                   
+<!ELEMENT mountain EMPTY>
+<!ATTLIST mountain name CDATA #REQUIRED 
+                   height CDATA #REQUIRED 
+                   latitude CDATA #REQUIRED
+                   longitude CDATA #REQUIRED>
+
+<!ELEMENT organization EMPTY>
+
+<!ATTLIST organization name CDATA #REQUIRED
+                       id ID #REQUIRED
+                       creationdate CDATA #REQUIRED>
+
+<!ELEMENT border EMPTY>
+<!ATTLIST border countryCode IDREF #REQUIRED
+                 length CDATA #REQUIRED>
+
+
+<!ELEMENT river EMPTY>
+<!ATTLIST river id ID #REQUIRED 
+        name CDATA #REQUIRED
+        length  CDATA #IMPLIED>','','')
+from dual;
+/
+
+
+/********************************* netoyage de base de donnée  ***************************************/
+
+
+WbExport -type=text
+         -file='clear.sql'
+         -createDir=true
+         -encoding=ISO-8859-1
+         -header=false
+         -delimiter=','
+         -decimal=','
+         -dateFormat='yyyy-MM-dd'
+/ 
+select 'drop '||object_type||' "'|| object_name || '" FORCE ;' 
+from user_objects 
+where object_type in ('TYPE')
+/
+
+/********************************* netoyage de base de donnée  ***************************************/
+
+
+
+
+@clear
+DROP TABLE COUNTRYS; 
+DROP TABLE MONDIAL;
+DROP TABLE my_encompasses;
+/

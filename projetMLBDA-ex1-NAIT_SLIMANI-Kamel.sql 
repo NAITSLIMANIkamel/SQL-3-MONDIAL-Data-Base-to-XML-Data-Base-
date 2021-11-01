@@ -1,0 +1,686 @@
+/*CE FICHIER EST DIDIE A L'EXERCICE 2 DANS LE QUEL VOUS LES JE CREE LES TABLES ET LES TYPES ET SERONT TRASFORMÉ LES FICHIERS 
+EXO1_i.XML ET DTD1_i.dtd i in {1,2}
+SERONT sCREES ET Y'AURA UN FICHIER  clean.sql  QUI SERT JUSTE AU NETOYAGE DE LA BASE DE DONNEE APRÈS L'EXÉCUTION.
+
+SI VOUS SOUHAITER CIOR LES RESULTAT SQL VOUS POUVEZ DESACTIVER EN METTANT EN COMMENTAIRE LES LIGNES A LA FIN DE CE FICHIER
+
+AVANT L'EXECUTION DE CE FICHIER ASSUREZ BIEN QU'IL YA LES SYNONYMES DE LA BASE MONDIAL DANS LA BASE DE DONÉES
+*/
+
+
+ /*********************************************************************************************************************************************************/
+/*    ###############################################    /* ELEMENTS SPECIFIQUE A LA DTD 1           ########################################## */
+/*********************************** AIRPORT     ***************************/
+CREATE OR REPLACE Type T_Airport as OBJECT(
+    name VARCHAR2(100),
+    nearCity VARCHAR2(100),
+    member function toXML return XMLType);
+    
+/
+create or replace type body T_Airport as
+ member function toXML return XMLType is
+   output XMLType;
+   stringoutput VARCHAR2(100);
+   begin
+    stringoutput :='<airport name="'||name;
+    if  nearcity is not NULL then
+      stringoutput := stringoutput||'"  nearCity="'||nearCity;
+    end if;
+    stringoutput:= stringoutput||'" />';
+    output := XMLType.createxml(stringoutput);
+    
+      return output;
+   end;
+  end;
+
+
+/
+CREATE OR REPLACE Type T_EnsAirport as table of T_Airport;
+/
+
+
+/************************ Continent_t *************************************/
+create or replace type T_Continent as OBJECT(
+  name VARCHAR2(60),
+  percent NUMBER  ,
+  member function toXML return XMLType);
+
+
+/
+
+create or replace type body T_Continent as
+ member function toXML return XMLType is
+   output XMLType;
+   stringoutput VARCHAR2(100);
+   begin
+    stringoutput :='<continent name="'||name;
+    if  percent is not NULL then
+      stringoutput := stringoutput||'"  percent=" '||percent;
+    end if;
+    stringoutput:= stringoutput||'"  />';
+    output := XMLType.createxml(stringoutput);
+    
+      return output;
+   end;
+  end;
+
+
+/
+create or replace type T_EnsContinent as table of T_Continent;
+/
+
+
+/****************************  Cooordinates   ********************************/
+create or replace type T_coordinates as object(
+    Latitude NUMBER(4,2) ,
+    Longitude NUMBER(5,2) ,
+    member function toXML return XMLType);
+
+
+/
+create or replace type body T_coordinates as
+ member function toXML return XMLType is
+   output XMLType;
+   begin
+    output := XMLType.createxml('<coordinates latitude="'||Latitude||'" longitude="'||Longitude||'" />');
+    return output;
+   end;end;
+
+
+/
+
+/**************************************************    ISLAND     ***************************************************/
+
+CREATE OR replace TYPE T_Island as OBJECT(
+    name VARCHAR2(100),
+    coordinates T_coordinates,
+    member function toXML return XMLType);
+
+/
+create OR replace type body  T_Island as
+  member function toXML return XMLType is
+    output XMLType;
+    begin
+      output:= XMLType.createxml('<island name="'||name||'" />');
+      if coordinates is not null then 
+        output := XMLType.appendchildxml(output,'island', coordinates.toXML());
+      end if;
+    return output;
+    end;
+  end;
+  
+/
+
+create or replace type T_EnsIsland as table of T_Island;
+/          
+
+/**********************************   Mountain      ***************************************/
+
+CREATE OR REPLACE Type  T_Mountain as Object(
+    name varchar2(50),
+    height NUMBER(7,1),
+    member  function toXML return XMLType);
+
+
+
+/
+create or replace type body T_Mountain as
+    member function toXML return XMLType is
+    output XMLType;
+    begin
+      output := XMLType.createxml('<mountain name="'||name||'" height="'||height||'" />');
+    return output;
+    end;
+  end;
+
+
+/
+create or replace type  T_EnsMountain as table of T_Mountain;
+/
+
+/********************************         Desert      *******************************************/
+
+
+
+create OR REPLACE Type  T_Desert as Object(
+    name varchar2(50),
+    area NUMBER(10),
+    member function toXML return XMLType);
+
+
+/
+create or replace type body T_Desert as 
+   member function toXML return XMLType is
+   output XMLType;
+   begin
+    output := XMLType.createxml('<desert name="'||name||'" area="'||area||'" />');
+    return output;
+   end;
+  end;
+/
+create or replace type  T_EnsDesert as table of T_Desert;
+/
+
+
+/******************************************   Province  *********************************************/
+
+CREATE OR REPLACE type T_Province as OBJECT(
+    name VARCHAR2(100),
+    capital VARCHAR2(100),
+    deserts T_EnsDesert,
+    mountains T_EnsMountain,
+    islands T_EnsIsland,
+    member function toXML return XMLType);
+
+
+
+/
+CREATE OR REPLACE TYPE BODY T_Province as
+   member function toXML return XMLType is
+   output  XMLType ;
+   begin
+      output := XMLType.createxml('<province name="'||name||'" capital="'||capital||'" />');  
+    
+    for indx IN 1..deserts.COUNT
+      loop
+         output := XMLType.appendchildxml(output,'province',deserts(indx).toXML());   
+      end loop;
+
+      for indx IN 1..mountains.COUNT
+      loop
+         output := XMLType.appendchildxml(output,'province',mountains(indx).toXML());   
+      end loop;
+
+      for indx IN 1..islands.COUNT
+      loop
+         output := XMLType.appendchildxml(output,'province',islands(indx).toXML());   
+      end loop;
+
+      return output;
+   end;
+  end;
+/
+create or replace type T_EnsProvince as table of T_Province;
+/
+/*********************************************************************************************************************************************************/
+
+
+/*    ###############################################     ELEMENTS SPECIFIQUE A LA DTD 2            ########################################## */
+
+/***************************************         Headquarter        ********************************************/
+create or replace type T_headquarter as object(
+  name varchar2(50),
+  member function toXML return XMLType);
+
+
+
+/
+create or replace type body T_headquarter as 
+  member function toXML return XMLType is
+    output XMLtype;
+    begin 
+    output := XMLType.createxml('<headquarter  name="'||name||'"/>');
+    return output;
+    end;
+  end;
+
+
+
+
+
+/
+/***************************************           Border         ********************************************/
+
+
+create or replace type T_border as Object(
+  countryCode varchar(5),
+  length number,
+  member function toXML return XMLType);
+
+
+/
+create or replace type body T_border as 
+  member function toXML return XMLType is
+    output XMLType;
+    begin 
+    output := XMLType.createxml('<border countryCode="'|| countryCode || ' " length="' || length|| '" />');
+    return output;
+    end;
+  end;
+/
+create or replace type T_EnsBorder as table of T_border;
+/
+
+
+/***************************************            Borders       ********************************************/
+create or replace type T_Borders as Object(
+  borders T_Ensborder,
+  member function toXML return XMLType);
+/
+create or replace type body T_Borders as  
+  member function toXML return XMLType is 
+    output XMLType;
+    begin
+      output := XMLType.createxml('<borders/>');  
+      for indx IN 1..borders.COUNT
+      loop
+        output := XMLType.appendchildxml(output,'borders',borders(indx).toXML());   
+      end loop;
+      return output;
+    end;end;
+
+
+
+
+/****************************************            Language      ********************************************/
+/
+create or replace type T_Language as Object(
+  language varchar2(30),
+  percent number,
+  member function toXML return XMLType);
+
+
+/
+create or replace type Body T_Language as 
+  member function toXML return XMLType is
+    output XMLType;
+    begin 
+    output := XMLType.createxml('<language language="'||language||'" percent="'||percent||'" />');
+    return output;
+    end;
+  end;
+
+
+/
+create or replace type T_EnsLanguage as table of T_Language;
+/
+
+
+/*******************************************************************************************************************************************/
+
+
+
+
+/*     ###############################################    ELEMENTS EN COMMUN ENTRE LES DEUX DTD             ##########################################  */
+
+/**********************************************         Country    ***********************************************/
+CREATE OR REPLACE TYPE T_Country as OBJECT(
+    code varchar2(5),
+    name VARCHAR2(60),
+    population number,
+    continents T_EnsContinent,
+    provinces T_EnsProvince,
+    airports T_EnsAirport,
+    languages T_EnsLanguage,
+    borders T_Borders,
+    member function toXML return XMLType,
+    member function toXML2 return XMLType);
+
+ 
+ 
+/
+CREATE OR REPLACE TYPE body T_Country as
+   member function toXML return XMLType is
+   output  XMLType ;
+   begin
+       output:=XMLType.createxml('<country idcountry="'||code||'" 
+    nom="'||name||'" />');  
+      for indx IN 1..continents.COUNT
+      loop
+         output := XMLType.appendchildxml(output,'country',continents(indx).toXML());   
+      end loop;
+      for indx IN 1..provinces.COUNT
+      loop
+         
+         output := XMLType.appendchildxml(output,'country',provinces(indx).toXML());   
+      end loop;
+     
+      for indx IN 1..airports.COUNT
+      loop
+         
+         output := XMLType.appendchildxml(output,'country',airports(indx).toXML());   
+      end loop;
+
+      return output;
+   end;
+
+  member function toXML2 return XMLType is 
+  border T_Border;
+  output XMLType;
+  begin
+    output:=XMLType.createxml('<country code="'||code||'" 
+    name="'||name||'" population="'||population||'" />');
+    for indx in 1..languages.COUNT
+    loop
+      output:=XMLType.appendchildxml(output,'country',languages(indx).toXML());
+    end loop;
+    output:= XMLType.appendchildxml(output,'country',borders.toXML());
+    return output;
+  end;end;
+
+
+/
+create or replace type T_EnsCountry as table of ref T_country
+/
+/************************************************     Organization     **********************************************/
+
+create or replace type T_Organization as Object(
+  countrys T_EnsCountry ,
+  headquarter T_headquarter,
+  member function toXML return XMLType
+  );
+
+
+/
+create or replace type body T_Organization as
+  member function toXML return XMLType is 
+    country T_country;
+    output XMLType;
+    begin
+    output :=XMLType.createxml('<organization/>');
+    for indx in 1..countrys.COUNT
+    loop
+        select deref(countrys(indx)) into country from dual;
+        output := XMLType.appendchildxml(output,'organization',country.toXML2());
+    end loop;
+    output := XMLType.appendchildxml(output,'organization',headquarter.toXML());
+    return output;
+    end;
+  end;
+
+
+/
+create or replace type T_EnsOrganization as table of T_Organization;
+/
+
+/************************************************     Mondiale     **********************************************/
+
+
+CREATE OR REPLACE TYPE T_Mondial as Object(
+  countrys T_EnsCountry,
+  organizations T_EnsOrganization,
+  member function toXML return XMLType,
+  member function toXML2 return XMLType);
+
+
+
+
+/
+create or replace type body T_Mondial as  
+   member function toXML return XMLType is 
+     country T_Country;
+     output XMLType;
+     begin
+        output := XMLType.createxml('<mondial/>');  
+        for indx IN 1..countrys.COUNT
+        loop
+           select deref(countrys(indx)) into country  from dual;
+           output := XMLType.appendchildxml(output,'mondial',country.toXML());   
+        end loop;
+        return output;
+    end;
+  member function toXML2 return XMLType is 
+     output XMLType;
+     begin
+        output := XMLType.createxml('<mondial/>');  
+        for indx IN 1..organizations.COUNT
+        loop
+           output := XMLType.appendchildxml(output,'mondial',organizations(indx).toXML());   
+        end loop;
+        return output;
+    end;
+  end;
+/    
+
+
+
+/*****************************************************         INSTANCES              ****************************************************************/
+
+
+/****************************************      Table Country      ***************************************************/
+/***********           creation          ****************/
+
+create table COUNTRYS of T_Country 
+  nested table continents store as Continents_tab
+  nested table airports store  as Airports_tab
+  nested table languages store as lesLangues_tab
+  nested table provinces store as Provinces_tab(
+      nested table mountains store as moutains_tab
+      nested table deserts store as deserts_tab
+      nested table islands store as islands_tab)
+  nested table borders.borders store as borders_tab;
+ /
+ 
+/***********           insertion des élements          ****************/
+            
+insert into COUNTRYS value( select T_country
+                     (
+                        c.code,
+                        c.name,         
+                        c.population,
+--                         
+                        (select cast(COLLECT(T_Continent(e.continent,e.percentage)) as T_EnsContinent)
+                              from encompasses e  
+                              where  e.country=c.code)
+                            ,
+                        (select cast(collect(T_Province
+                        (
+                            p.name , 
+                            p.capital, 
+                            (select  cast( Collect(T_desert(d.name,d.area)) as T_EnsDesert)
+                                from desert d ,GEO_DESERT gd
+                                  where gd.desert=d.name and gd.country=c.code and 
+                                  gd.province=p.name)
+                            ,
+                            (select  cast( Collect(T_Mountain(m.name,m.height) ) as T_EnsMountain)
+                                from mountain m ,GEO_Mountain gm
+                                  where gm.mountain=m.name and gm.country=c.code and 
+                                  gm.province=p.name)
+                            ,
+                             (select  cast(collect(T_Island(i.name,T_coordinates(i.coordinates.Latitude,i.coordinates.Longitude))) as T_EnsIsland)
+                                from Island i ,GEO_ISLAND gi
+                                 where gi.island=i.name and gi.country=c.code and 
+                                  gi.province=p.name)
+                          )) as T_EnsProvince )
+                         from Province p 
+                         where p.country=c.code)
+--                          
+                          ,
+                        (select cast(collect(T_Airport(a.name,a.city)) as T_EnsAirport)
+                            from Airport a
+                          where c.code =a.country)
+--                           
+                        ,
+                      (select cast(collect(T_Language(l.name,l.percentage)) as T_EnsLanguage)
+                        from Language l
+                        where c.code =l.country)
+--                           
+                          ,
+                      (select  T_Borders( cast (collect (T_Border(c1.code,b.length))  as T_EnsBorder) )
+                        from Borders b , country c1 
+                        where 
+                        (b.country1= c.code and b.country2=c1.code)
+                        or 
+                        (b.country2=c.code and  b.country1=c1.code))
+                                            ) from country c);  
+                          
+
+/
+
+
+
+
+/****************************************      Table Mondial      ***************************************************/
+create table Mondial of T_Mondial
+  nested table countrys store as Countrysref
+  nested table organizations store as Organisationtab
+    (
+    nested table countrys store as org_countrysref 
+    );
+
+/
+
+/*******************************************************         Insertion a mondiale              *******************************************/
+  
+insert into  Mondial  select 
+  T_Mondial(
+  (select cast(collect(ref(c)) as T_EnsCountry )  from COUNTRYS c)
+  ,
+  (select cast (collect(T_Organization(
+              (select cast( collect( ref(c1)) as T_EnsCountry) 
+                    from isMember im , COUNTRYS c1 where  c1.code=im.country and im.Organization=o.abbreviation)
+              ,T_headquarter(o.city))) as T_EnsOrganization)
+      from Organization o )
+      ) from dual;
+/
+
+
+
+WbExport -type=text
+         -file='EXO1_1.xml'
+         -createDir=true
+         -encoding=ISO-8859-1
+         -header=false
+         -delimiter=','
+         -decimal=','
+         -dateFormat='yyyy-MM-dd'
+/
+select '<?xml version="1.0"?>
+<!DOCTYPE mondial SYSTEM "DTD1_1.dtd">
+'||m.toXML().getClobVal() 
+from mondial m;
+/
+
+
+
+WbExport -type=text
+         -file='EXO1_2.xml'
+         -createDir=true
+         -encoding=ISO-8859-1
+         -header=false
+         -delimiter=','
+         -decimal=','
+         -dateFormat='yyyy-MM-dd'
+/
+select '<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mondial SYSTEM "DTD1_2.dtd">
+'||m.toXML2().getClobVal() 
+from mondial m;
+/
+
+
+
+
+WbExport -type=text
+         -file='DTD1_1.dtd'
+         -createDir=true
+         -encoding=ISO-8859-1
+         -header=false
+         -delimiter=','
+         -decimal=','
+         -dateFormat='yyyy-MM-dd'
+/         
+select replace ('<!ELEMENT mondial (country+) >
+
+<!ELEMENT country (continent+, province+, airport*) >
+<!ATTLIST country idcountry ID #REQUIRED
+                  nom CDATA #REQUIRED>
+
+<!ELEMENT province ( (mountain|desert)*, island* ) >
+<!ATTLIST province name CDATA #REQUIRED 
+                      capital CDATA #REQUIRED >
+
+<!ELEMENT mountain EMPTY >
+<!ATTLIST mountain name CDATA #REQUIRED 
+                   height CDATA #REQUIRED >
+
+<!ELEMENT desert EMPTY >
+<!ATTLIST desert name CDATA #REQUIRED 
+                 area CDATA #IMPLIED >
+
+<!ELEMENT island (coordinates?) >
+<!ATTLIST island name CDATA #REQUIRED >
+
+<!ELEMENT coordinates EMPTY >
+<!ATTLIST coordinates latitude CDATA #REQUIRED
+                      longitude CDATA #REQUIRED>
+
+<!ELEMENT continent EMPTY >
+<!ATTLIST continent name CDATA #REQUIRED 
+                    percent CDATA #REQUIRED >
+
+<!ELEMENT airport EMPTY>
+<!ATTLIST airport name CDATA #REQUIRED 
+ nearCity CDATA #IMPLIED >','','')
+from dual;
+/
+
+
+WbExport -type=text
+         -file='DTD1_2.dtd'
+         -createDir=true
+         -encoding=ISO-8859-1
+         -header=false
+         -delimiter=','
+         -decimal=','
+         -dateFormat='yyyy-MM-dd'
+/         
+select replace ('<!ELEMENT mondial (organization+) >
+<!ELEMENT organization (country+, headquarter) >
+
+<!ELEMENT country (language*, borders) >
+<!ATTLIST country code CDATA #IMPLIED
+                  name CDATA #REQUIRED 
+                  population CDATA #REQUIRED > 
+
+<!ELEMENT language EMPTY >
+<!ATTLIST language language CDATA #REQUIRED
+                   percent  CDATA #REQUIRED >
+
+<!ELEMENT borders (border*) >
+
+<!ELEMENT border EMPTY>
+<!ATTLIST border countryCode CDATA #REQUIRED
+                 length CDATA #REQUIRED >
+ 
+<!ELEMENT headquarter EMPTY>
+<!ATTLIST headquarter name CDATA #REQUIRED>','','')
+from dual;
+/
+
+/********************************* netoyage de base de donnée  ***************************************/
+
+
+
+WbExport -type=text
+         -file='clear.sql'
+         -createDir=true
+         -encoding=ISO-8859-1
+         -header=false
+         -delimiter=','
+         -decimal=','
+         -dateFormat='yyyy-MM-dd'
+/ 
+select 'drop '||object_type||' "'|| object_name || '" FORCE ;' 
+from user_objects 
+where object_type in ('TYPE')
+/
+
+/************************ netoyage de la base de donnée *****************************/
+
+@clear
+DROP TABLE MONDIAL;
+DROP TABLE COUNTRYS;
+
+
+
+
+
+
+
+
+
+
+
+
+
